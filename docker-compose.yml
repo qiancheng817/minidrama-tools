@@ -4,7 +4,7 @@ services:
     container_name: ai-drama-manager
     restart: unless-stopped
     ports:
-      - "8097:8096"
+      - "8997:8997"
     environment:
       SOURCE_ROOT: /source
       LIBRARY_ROOT: /library

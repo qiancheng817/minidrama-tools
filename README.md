@@ -57,7 +57,7 @@
    docker compose up -d --build
    ```
 
-5. 浏览器访问 `http://NAS地址:8097`。
+5. 浏览器访问 `http://NAS地址:8997`。
 
 ## Emby 设置
 
