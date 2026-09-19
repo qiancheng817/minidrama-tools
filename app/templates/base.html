@@ -2,11 +2,11 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}AI 短剧管理{% endblock %}</title><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/directory-picker.css">
+  <title>{% block title %}AI 短剧管理{% endblock %}</title><link rel="icon" type="image/svg+xml" href="/static/icon.svg"><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/directory-picker.css">
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">AI</span><div><strong>AI-DRAMA</strong><small>{{ version }}</small></div></div>
+    <div class="brand"><span class="brand-mark"><img src="/static/icon.svg" alt="AI 短剧整理器" width="38" height="38"></span><div><strong>AI-DRAMA</strong><small>{{ version }}</small></div></div>
     <nav>
       <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}"><span>⌂</span>主界面</a>
       <a href="/jobs" class="{{ 'active' if active == 'jobs' else '' }}"><span>＋</span>整理任务</a>
