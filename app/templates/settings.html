@@ -3,22 +3,32 @@
 {% block content %}
 <div class="page-head"><div><h1>设置</h1><p>配置短剧的扫描、整理和 Emby 联动。</p></div></div>
 <form class="settings-layout" onsubmit="saveSettings(event,this)">
-  <div class="settings-tabs"><a class="active">整理</a><a>元数据</a><a>Emby</a></div><div class="settings-main">
-    <section class="setting-group"><h2>目录设置</h2>
-      <label><span>刮削目录</span><small>要扫描的 AI 短剧来源目录，可从已挂载磁盘中选择。</small><div class="path-picker"><input name="scrape_directory" value="{{ settings.scrape_directory }}" required><button class="button ghost" type="button" onclick="openDirectoryPicker('scrape_directory')">选择目录</button></div></label>
-      <label><span>整理目录</span><small>Emby 媒体文件的存放目录，也可选择本地磁盘或 CD2 挂载目录。</small><div class="path-picker"><input name="organize_directory" value="{{ settings.organize_directory }}" required><button class="button ghost" type="button" onclick="openDirectoryPicker('organize_directory')">选择目录</button></div></label>
-      <p class="mount-hint">可浏览范围：{{ browse_roots | join('、') }}。NAS 主机目录需先在 Docker Compose 中挂载。</p>
-    </section>
-    <section class="setting-group"><h2>整理规则</h2>
-      <label><span>整理模式</span><small>复制最安全；硬链接要求两个目录位于同一文件系统；原地整理不会使用目标目录。</small><select name="organize_mode">{% for key,label in modes.items() %}<option value="{{ key }}" {{ 'selected' if settings.organize_mode == key else '' }}>{{ label }}</option>{% endfor %}</select></label>
-      <label><span>文件大小过滤（MB）</span><small>小于此大小的视频将被忽略。</small><input type="number" min="0" name="minimum_size_mb" value="{{ settings.minimum_size_mb }}"></label>
-      <label class="switch-row"><div><span>覆盖 NFO 元数据</span><small>重新整理时更新已有的本地元数据。</small></div><input type="checkbox" name="overwrite_metadata" value="true" {{ 'checked' if settings.overwrite_metadata else '' }}></label>
-      <label class="switch-row"><div><span>重新生成已有封面</span><small>关闭时保留整理目录中已有的 poster.jpg 和 fanart.jpg。</small></div><input type="checkbox" name="overwrite_artwork" value="true" {{ 'checked' if settings.overwrite_artwork else '' }}></label>
-    </section>
-    <section class="setting-group"><h2>Emby 联动</h2>
-      <label><span>Emby 地址</span><small>例如 http://NAS-IP:8096</small><input name="emby_url" value="{{ settings.emby_url }}" placeholder="http://NAS-IP:8096"></label>
-      <label><span>Emby API Key</span><small>用于整理完成后刷新媒体库，密钥只保存在 NAS 本地配置中。</small><input type="password" name="emby_api_key" value="{{ settings.public_dict().emby_api_key }}" autocomplete="off"></label>
-    </section><div class="form-actions"><button class="button primary" type="submit">保存修改</button></div>
+  <div class="settings-tabs"><a class="active" data-tab="organize" onclick="switchSettingsTab('organize')">整理</a><a data-tab="metadata" onclick="switchSettingsTab('metadata')">元数据</a><a data-tab="emby" onclick="switchSettingsTab('emby')">Emby</a></div>
+  <div class="settings-main">
+    <div class="settings-panel" data-tab="organize">
+      <section class="setting-group"><h2>目录设置</h2>
+        <label><span>刮削目录</span><small>要扫描的 AI 短剧来源目录，可从已挂载磁盘中选择。</small><div class="path-picker"><input name="scrape_directory" value="{{ settings.scrape_directory }}" required><button class="button ghost" type="button" onclick="openDirectoryPicker('scrape_directory')">选择目录</button></div></label>
+        <label><span>整理目录</span><small>Emby 媒体文件的存放目录，也可选择本地磁盘或 CD2 挂载目录。</small><div class="path-picker"><input name="organize_directory" value="{{ settings.organize_directory }}" required><button class="button ghost" type="button" onclick="openDirectoryPicker('organize_directory')">选择目录</button></div></label>
+        <p class="mount-hint">可浏览范围：{{ browse_roots | join('、') }}。NAS 主机目录需先在 Docker Compose 中挂载。</p>
+      </section>
+      <section class="setting-group"><h2>整理规则</h2>
+        <label><span>整理模式</span><small>复制最安全；硬链接要求两个目录位于同一文件系统；原地整理不会使用目标目录。</small><select name="organize_mode">{% for key,label in modes.items() %}<option value="{{ key }}" {{ 'selected' if settings.organize_mode == key else '' }}>{{ label }}</option>{% endfor %}</select></label>
+        <label><span>文件大小过滤（MB）</span><small>小于此大小的视频将被忽略。</small><input type="number" min="0" name="minimum_size_mb" value="{{ settings.minimum_size_mb }}"></label>
+      </section>
+    </div>
+    <div class="settings-panel" data-tab="metadata" hidden>
+      <section class="setting-group"><h2>元数据与封面</h2>
+        <label class="switch-row"><div><span>覆盖 NFO 元数据</span><small>重新整理时更新已有的本地元数据。</small></div><input type="checkbox" name="overwrite_metadata" value="true" {{ 'checked' if settings.overwrite_metadata else '' }}></label>
+        <label class="switch-row"><div><span>重新生成已有封面</span><small>关闭时保留整理目录中已有的 poster.jpg 和 fanart.jpg。</small></div><input type="checkbox" name="overwrite_artwork" value="true" {{ 'checked' if settings.overwrite_artwork else '' }}></label>
+      </section>
+    </div>
+    <div class="settings-panel" data-tab="emby" hidden>
+      <section class="setting-group"><h2>Emby 联动</h2>
+        <label><span>Emby 地址</span><small>例如 http://NAS-IP:8096</small><input name="emby_url" value="{{ settings.emby_url }}" placeholder="http://NAS-IP:8096"></label>
+        <label><span>Emby API Key</span><small>用于整理完成后刷新媒体库，密钥只保存在 NAS 本地配置中。</small><input type="password" name="emby_api_key" value="{{ settings.public_dict().emby_api_key }}" autocomplete="off"></label>
+      </section>
+    </div>
+    <div class="form-actions"><button class="button primary" type="submit">保存修改</button></div>
   </div>
 </form>
 {% endblock %}
