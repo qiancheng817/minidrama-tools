@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import re
 import shutil
@@ -246,31 +247,42 @@ def _wrapped_title(draw: ImageDraw.ImageDraw, title: str, font: ImageFont.ImageF
     return lines[:3]
 
 
-def create_artwork(frame: Path, show: Show) -> None:
-    source = Image.open(frame).convert("RGB")
+def render_artwork(source: Image.Image, show: Show, overlay_title: bool = True) -> None:
     fanart = _cover_crop(source.copy(), (1920, 1080))
     fanart = ImageEnhance.Contrast(fanart).enhance(1.08)
     fanart.save(Path(show.path) / "fanart.jpg", quality=92)
 
-    poster = _cover_crop(source, (1000, 1500)).filter(ImageFilter.GaussianBlur(0.35))
-    overlay = Image.new("RGBA", poster.size, (0, 0, 0, 0))
-    gradient = ImageDraw.Draw(overlay)
-    for y in range(650, 1500):
-        alpha = int(215 * ((y - 650) / 850) ** 1.35)
-        gradient.line((0, y, 1000, y), fill=(8, 10, 18, alpha))
-    poster = Image.alpha_composite(poster.convert("RGBA"), overlay)
-    draw = ImageDraw.Draw(poster)
-    title_font = _font(92 if len(show.title) <= 9 else 72)
-    small_font = _font(32)
-    lines = _wrapped_title(draw, show.title, title_font, 850)
-    line_height = int(getattr(title_font, "size", 72) * 1.25)
-    y = 1340 - len(lines) * line_height
-    for line in lines:
-        draw.text((76, y), line, font=title_font, fill="white", stroke_width=2, stroke_fill=(0, 0, 0, 150))
-        y += line_height
-    subtitle = f"AI 短剧  ·  全 {len(show.episodes)} 集"
-    draw.text((80, 1400), subtitle, font=small_font, fill=(220, 225, 235, 255))
+    poster = _cover_crop(source, (1000, 1500))
+    if overlay_title:
+        poster = poster.filter(ImageFilter.GaussianBlur(0.35))
+        overlay = Image.new("RGBA", poster.size, (0, 0, 0, 0))
+        gradient = ImageDraw.Draw(overlay)
+        for y in range(650, 1500):
+            alpha = int(215 * ((y - 650) / 850) ** 1.35)
+            gradient.line((0, y, 1000, y), fill=(8, 10, 18, alpha))
+        poster = Image.alpha_composite(poster.convert("RGBA"), overlay)
+        draw = ImageDraw.Draw(poster)
+        title_font = _font(92 if len(show.title) <= 9 else 72)
+        small_font = _font(32)
+        lines = _wrapped_title(draw, show.title, title_font, 850)
+        line_height = int(getattr(title_font, "size", 72) * 1.25)
+        y = 1340 - len(lines) * line_height
+        for line in lines:
+            draw.text((76, y), line, font=title_font, fill="white", stroke_width=2, stroke_fill=(0, 0, 0, 150))
+            y += line_height
+        subtitle = f"AI 短剧  ·  全 {len(show.episodes)} 集"
+        draw.text((80, 1400), subtitle, font=small_font, fill=(220, 225, 235, 255))
     poster.convert("RGB").save(Path(show.path) / "poster.jpg", quality=94)
+
+
+def create_artwork(frame: Path, show: Show) -> None:
+    with Image.open(frame) as image:
+        render_artwork(image.convert("RGB"), show)
+
+
+def create_artwork_from_bytes(data: bytes, show: Show, overlay_title: bool = False) -> None:
+    with Image.open(io.BytesIO(data)) as image:
+        render_artwork(image.convert("RGB"), show, overlay_title=overlay_title)
 
 
 def _write_xml(path: Path, root: ET.Element) -> None:

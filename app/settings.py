@@ -32,6 +32,7 @@ class AppSettings:
     minimum_size_mb: int = 1
     overwrite_metadata: bool = True
     overwrite_artwork: bool = False
+    cover_source: str = "frame"
     emby_url: str = ""
     emby_api_key: str = ""
 

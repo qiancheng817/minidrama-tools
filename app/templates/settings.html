@@ -18,6 +18,7 @@
     </div>
     <div class="settings-panel" data-tab="metadata" hidden>
       <section class="setting-group"><h2>元数据与封面</h2>
+        <label><span>封面来源</span><small>视频抽帧从剧集画面生成；在线刮削按剧名从短剧在线源（红果短剧）获取官方封面；先在线后抽帧在在线未命中时自动回退。</small><select name="cover_source">{% for key,label in cover_source_modes.items() %}<option value="{{ key }}" {{ 'selected' if settings.cover_source == key else '' }}>{{ label }}</option>{% endfor %}</select></label>
         <label class="switch-row"><div><span>覆盖 NFO 元数据</span><small>重新整理时更新已有的本地元数据。</small></div><input type="checkbox" name="overwrite_metadata" value="true" {{ 'checked' if settings.overwrite_metadata else '' }}></label>
         <label class="switch-row"><div><span>重新生成已有封面</span><small>关闭时保留整理目录中已有的 poster.jpg 和 fanart.jpg。</small></div><input type="checkbox" name="overwrite_artwork" value="true" {{ 'checked' if settings.overwrite_artwork else '' }}></label>
       </section>

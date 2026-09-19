@@ -8,7 +8,15 @@ from pathlib import Path
 from time import monotonic
 from xml.etree import ElementTree as ET
 
-from .core import STRM_EXTENSION, Show, choose_frame, create_artwork, resolve_media_source
+from .core import (
+    STRM_EXTENSION,
+    Show,
+    choose_frame,
+    create_artwork,
+    create_artwork_from_bytes,
+    resolve_media_source,
+)
+from .cover_sources import download_cover_image, fetch_online_cover
 
 
 MODES = {"copy": "复制", "hardlink": "硬链接", "inplace": "原地整理"}
@@ -77,9 +85,27 @@ def write_nfo(show: Show, folder: Path, mapped_episodes: list[tuple[int, Path]],
         _write_xml(video_path.with_suffix(".nfo"), episode)
 
 
+def _frame_cover(first_episode: Path, artwork_show: Show, frame: Path) -> None:
+    """视频抽帧方式；strm 指向的媒体不可达时仅跳过，不使任务失败。"""
+    media_source = resolve_media_source(first_episode)
+    if media_source is None:
+        if first_episode.suffix.lower() == STRM_EXTENSION:
+            print("strm 指向的媒体无法访问，已跳过封面生成，可手动放置 poster.jpg")
+            return
+        raise RuntimeError("无法解析媒体文件")
+    try:
+        choose_frame(media_source, frame)
+        create_artwork(frame, artwork_show)
+    except Exception as exc:
+        if first_episode.suffix.lower() != STRM_EXTENSION:
+            raise
+        print(f"strm 封面生成失败，已跳过：{exc}")
+
+
 def execute(
     show: Show, organize_root: Path, mode: str, plot: str = "",
     overwrite_artwork: bool = False, overwrite_metadata: bool = True,
+    cover_source: str = "frame",
 ) -> dict:
     if mode not in MODES:
         raise ValueError("不支持的整理模式")
@@ -113,24 +139,25 @@ def execute(
     try:
         if overwrite_artwork or not (target / "poster.jpg").exists() or not (target / "fanart.jpg").exists():
             first_episode = Path(show.episodes[0].path)
-            media_source = resolve_media_source(first_episode)
-            if media_source is not None:
-                artwork_show = Show(
-                    path=str(target), relative_path=show.relative_path, folder_name=show.folder_name,
-                    title=show.title, alternate_title=show.alternate_title, episodes=show.episodes,
-                    has_poster=False, has_nfo=True,
-                )
-                try:
-                    choose_frame(media_source, frame)
-                    create_artwork(frame, artwork_show)
-                except Exception as exc:
-                    # strm 指向的媒体可能在容器内不可访问（云盘未挂载、URL 不通），
-                    # 此时跳过封面但保留 NFO，不让整个整理任务失败
-                    if first_episode.suffix.lower() != STRM_EXTENSION:
-                        raise
-                    print(f"strm 封面生成失败，已跳过：{exc}")
-            elif first_episode.suffix.lower() == STRM_EXTENSION:
-                print("strm 指向的媒体无法访问，已跳过封面生成，可手动放置 poster.jpg")
+            artwork_show = Show(
+                path=str(target), relative_path=show.relative_path, folder_name=show.folder_name,
+                title=show.title, alternate_title=show.alternate_title, episodes=show.episodes,
+                has_poster=False, has_nfo=True,
+            )
+            produced = False
+            if cover_source in ("online", "auto"):
+                match = fetch_online_cover(show.title)
+                if match is not None and match.cover_url:
+                    try:
+                        image_data = download_cover_image(match.cover_url)
+                        create_artwork_from_bytes(image_data, artwork_show)
+                        produced = True
+                    except Exception as exc:
+                        print(f"在线封面下载失败：{exc}")
+            if not produced:
+                if cover_source == "online":
+                    raise RuntimeError(f"在线刮削未找到《{show.title}》的封面，可改用“先在线后抽帧”")
+                _frame_cover(first_episode, artwork_show, frame)
     finally:
         frame.unlink(missing_ok=True)
     return {

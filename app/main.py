@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .core import safe_child, scan_shows
+from .cover_sources import COVER_SOURCE_MODES, normalize_cover_source
 from .organizer import MODES, build_plan, execute
 from .settings import (
     ALLOWED_LIBRARY_ROOT,
@@ -29,7 +30,7 @@ from .settings import (
 
 
 BASE_DIR = Path(__file__).parent
-app = FastAPI(title="AI 短剧整理器", version="0.5.1")
+app = FastAPI(title="AI 短剧整理器", version="0.6.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 BATCH_TASKS: dict[str, dict] = {}
@@ -45,7 +46,8 @@ def page_context(request: Request, active: str, **extra) -> dict:
         "settings": settings,
         "jobs": jobs,
         "modes": MODES,
-        "version": "v0.5.1",
+        "cover_source_modes": COVER_SOURCE_MODES,
+        "version": "v0.6.0",
     }
     context.update(extra)
     return context
@@ -157,6 +159,7 @@ def update_settings(
     minimum_size_mb: int = Form(1),
     overwrite_metadata: bool = Form(False),
     overwrite_artwork: bool = Form(False),
+    cover_source: str = Form("frame"),
     emby_url: str = Form(""),
     emby_api_key: str = Form(""),
 ):
@@ -167,12 +170,17 @@ def update_settings(
         target = validate_configured_path(organize_directory, ALLOWED_PATH_ROOTS, "整理目录")
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    try:
+        cover_source_value = normalize_cover_source(cover_source)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     previous = load_settings()
     api_key = previous.emby_api_key if emby_api_key == "••••••••" else emby_api_key.strip()
     settings = AppSettings(
         scrape_directory=str(source), organize_directory=str(target), organize_mode=organize_mode,
         minimum_size_mb=max(0, minimum_size_mb), overwrite_metadata=overwrite_metadata,
-        overwrite_artwork=overwrite_artwork, emby_url=emby_url.strip().rstrip("/"), emby_api_key=api_key,
+        overwrite_artwork=overwrite_artwork, cover_source=cover_source_value,
+        emby_url=emby_url.strip().rstrip("/"), emby_api_key=api_key,
     )
     save_settings(settings)
     return {"ok": True, "message": "设置已保存"}
@@ -212,7 +220,7 @@ def organize(
         source, target = task_paths(source_directory, organize_directory)
         result = execute(
             selected_show(source, relative_path), target, selected_mode, plot.strip(),
-            settings.overwrite_artwork, settings.overwrite_metadata,
+            settings.overwrite_artwork, settings.overwrite_metadata, settings.cover_source,
         )
         job = add_job({key: result[key] for key in (
             "title", "source", "target", "mode", "mode_label", "copied", "linked", "skipped",
@@ -238,7 +246,7 @@ def _set_batch(task_id: str, **values) -> None:
 
 def _run_batch(
     task_id: str, source: Path, target: Path, relative_paths: list[str], mode: str,
-    overwrite_artwork: bool, overwrite_metadata: bool,
+    overwrite_artwork: bool, overwrite_metadata: bool, cover_source: str = "frame",
 ) -> None:
     failed = 0
     _set_batch(task_id, status="运行中")
@@ -247,7 +255,7 @@ def _run_batch(
         try:
             show = selected_show(source, relative_path)
             _set_batch(task_id, current=show.title)
-            result = execute(show, target, mode, "", overwrite_artwork, overwrite_metadata)
+            result = execute(show, target, mode, "", overwrite_artwork, overwrite_metadata, cover_source)
             add_job({key: result[key] for key in (
                 "title", "source", "target", "mode", "mode_label", "copied", "linked", "skipped",
                 "status", "created_at", "duration_seconds",
@@ -305,7 +313,7 @@ def batch_organize(
                 BATCH_TASKS.pop(finished, None)
     background_tasks.add_task(
         _run_batch, task_id, source, target, paths, selected_mode,
-        settings.overwrite_artwork, settings.overwrite_metadata,
+        settings.overwrite_artwork, settings.overwrite_metadata, settings.cover_source,
     )
     return {"ok": True, "task": dict(BATCH_TASKS[task_id])}
 
