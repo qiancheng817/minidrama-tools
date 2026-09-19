@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
@@ -13,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .core import safe_child, scan_shows
+from .auto_watcher import AutoWatcher
 from .cover_sources import COVER_SOURCE_MODES, normalize_cover_source
 from .organizer import MODES, build_plan, execute
 from .settings import (
@@ -21,6 +23,7 @@ from .settings import (
     ALLOWED_SOURCE_ROOT,
     AppSettings,
     add_job,
+    clear_jobs,
     load_jobs,
     load_settings,
     save_settings,
@@ -30,7 +33,19 @@ from .settings import (
 
 
 BASE_DIR = Path(__file__).parent
-app = FastAPI(title="AI 短剧整理器", version="0.6.0")
+auto_watcher = AutoWatcher()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    auto_watcher.start()
+    try:
+        yield
+    finally:
+        auto_watcher.stop(timeout=2)
+
+
+app = FastAPI(title="AI 短剧整理器", version="0.6.1", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 BATCH_TASKS: dict[str, dict] = {}
@@ -47,7 +62,7 @@ def page_context(request: Request, active: str, **extra) -> dict:
         "jobs": jobs,
         "modes": MODES,
         "cover_source_modes": COVER_SOURCE_MODES,
-        "version": "v0.6.0",
+        "version": "v0.6.1",
     }
     context.update(extra)
     return context
@@ -160,6 +175,7 @@ def update_settings(
     overwrite_metadata: bool = Form(False),
     overwrite_artwork: bool = Form(False),
     cover_source: str = Form("frame"),
+    auto_organize: bool = Form(False),
     emby_url: str = Form(""),
     emby_api_key: str = Form(""),
 ):
@@ -180,10 +196,12 @@ def update_settings(
         scrape_directory=str(source), organize_directory=str(target), organize_mode=organize_mode,
         minimum_size_mb=max(0, minimum_size_mb), overwrite_metadata=overwrite_metadata,
         overwrite_artwork=overwrite_artwork, cover_source=cover_source_value,
+        auto_organize=auto_organize,
         emby_url=emby_url.strip().rstrip("/"), emby_api_key=api_key,
     )
     save_settings(settings)
-    return {"ok": True, "message": "设置已保存"}
+    message = "设置已保存" + ("，自动整理已开启" if auto_organize else "")
+    return {"ok": True, "message": message}
 
 
 @app.post("/api/plan")
@@ -325,6 +343,17 @@ def batch_status(task_id: str):
         if not task:
             raise HTTPException(404, "批量任务不存在或服务已重启")
         return {"ok": True, "task": dict(task)}
+
+
+@app.post("/api/jobs/clear")
+def jobs_clear():
+    clear_jobs()
+    return {"ok": True, "message": "刮削记录已清除"}
+
+
+@app.get("/api/auto-status")
+def auto_status():
+    return {"ok": True, **auto_watcher.status()}
 
 
 @app.post("/api/emby-refresh")

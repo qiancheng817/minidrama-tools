@@ -10,6 +10,7 @@ from threading import Lock
 CONFIG_DIR = Path(os.getenv("CONFIG_DIR", "/config"))
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 JOBS_FILE = CONFIG_DIR / "jobs.json"
+AUTO_STATE_FILE = CONFIG_DIR / "auto_state.json"
 ALLOWED_SOURCE_ROOT = Path(os.getenv("SOURCE_ROOT", "/source"))
 ALLOWED_LIBRARY_ROOT = Path(os.getenv("LIBRARY_ROOT", "/library"))
 ALLOWED_PATH_ROOTS = tuple(
@@ -33,6 +34,7 @@ class AppSettings:
     overwrite_metadata: bool = True
     overwrite_artwork: bool = False
     cover_source: str = "frame"
+    auto_organize: bool = False
     emby_url: str = ""
     emby_api_key: str = ""
 
@@ -111,6 +113,11 @@ def directory_listing(value: str = "") -> dict:
             if entry.resolve() == owning_root or owning_root in entry.resolve().parents
         ],
     }
+
+
+def clear_jobs() -> None:
+    with _lock:
+        _atomic_write(JOBS_FILE, [])
 
 
 def load_jobs() -> list[dict]:

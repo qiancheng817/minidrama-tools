@@ -15,6 +15,10 @@
         <label><span>整理模式</span><small>复制最安全；硬链接要求两个目录位于同一文件系统；原地整理不会使用目标目录。</small><select name="organize_mode">{% for key,label in modes.items() %}<option value="{{ key }}" {{ 'selected' if settings.organize_mode == key else '' }}>{{ label }}</option>{% endfor %}</select></label>
         <label><span>文件大小过滤（MB）</span><small>小于此大小的视频将被忽略。</small><input type="number" min="0" name="minimum_size_mb" value="{{ settings.minimum_size_mb }}"></label>
       </section>
+      <section class="setting-group"><h2>自动整理</h2>
+        <label class="switch-row"><div><span>自动整理刮削</span><small>开启后每 60 秒检查一次刮削目录，发现新增短剧即按上面的目录、模式和封面设置自动整理。首次开启时，目录中已有的短剧只登记不整理，之后新增的才会处理。</small></div><input type="checkbox" name="auto_organize" value="true" {{ 'checked' if settings.auto_organize else '' }}></label>
+        <div id="auto-status" class="auto-status-line"></div>
+      </section>
     </div>
     <div class="settings-panel" data-tab="metadata" hidden>
       <section class="setting-group"><h2>元数据与封面</h2>

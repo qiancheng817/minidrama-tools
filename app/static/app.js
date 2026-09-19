@@ -18,9 +18,34 @@ async function previewJob(relativePath){if(!activeTask){showToast('请先扫描�
 async function runJob(relativePath){const confirmed=document.querySelector('#plan-confirm');if(!confirmed?.checked){showToast('请先勾选“我已检查整理计划”',true);return}const button=modalBody.querySelector('.button.primary');button.disabled=true;button.textContent='正在整理…';const body=taskBody(relativePath);body.set('confirmed','true');try{const data=await api('/api/organize',{method:'POST',body});closeModal();showToast(`《${data.job.title}》整理完成`);setTimeout(()=>location.href='/history',900)}catch(error){showToast(error.message,true);button.disabled=false;button.textContent='重试'}}
 function switchSettingsTab(tab){document.querySelectorAll('.settings-tabs a').forEach(item=>item.classList.toggle('active',item.dataset.tab===tab));document.querySelectorAll('.settings-panel').forEach(panel=>{panel.hidden=panel.dataset.tab!==tab})}
 async function saveSettings(event,form){event.preventDefault();const button=form.querySelector('button[type=submit]');button.disabled=true;try{const data=await api('/api/settings',{method:'POST',body:new FormData(form)});showToast(data.message);setTimeout(()=>location.href='/jobs',700)}catch(error){showToast(error.message,true);button.disabled=false}}
+async function clearJobs(button){
+  if(!window.confirm('确定清除全部刮削记录？此操作不可恢复（不影响已整理的文件和 NFO）。'))return;
+  button.disabled=true;
+  try{
+    const data=await api('/api/jobs/clear',{method:'POST'});
+    // 成功后就地收敛：表格置空、计数归零、按钮禁用
+    document.querySelector('#jobs-tbody').innerHTML='<tr><td colspan="8" class="empty-row">还没有刮削记录</td></tr>';
+    document.querySelector('#jobs-count').textContent='共 0 条整理记录';
+    button.disabled=true;
+    showToast(data.message)
+  }catch(error){showToast(error.message,true);button.disabled=false}
+}
 async function refreshEmby(button){button.disabled=true;try{const data=await api('/api/emby-refresh',{method:'POST'});showToast(data.message)}catch(error){showToast(error.message,true)}finally{button.disabled=false}}
 let directoryTarget='';
 async function openDirectoryPicker(inputName){directoryTarget=inputName;const input=document.querySelector(`[name="${inputName}"]`);await loadDirectories(input?.value||'')}
 async function loadDirectories(path=''){try{const data=await api(`/api/directories${path?`?path=${encodeURIComponent(path)}`:''}`);const items=data.directories.map(item=>`<button class="directory-row" type="button" data-path="${encodeURIComponent(item.path)}" onclick="loadDirectories(decodeURIComponent(this.dataset.path))"><span>📁</span><strong>${escapeHtml(item.name)}</strong><small>${item.writable?'可写':'只读'}</small></button>`).join('');const roots=data.path?'<button class="button ghost" type="button" onclick="loadDirectories()">切换挂载位置</button>':'';const parent=data.parent?`<button class="button ghost" type="button" data-path="${encodeURIComponent(data.parent)}" onclick="loadDirectories(decodeURIComponent(this.dataset.path))">返回上级</button>`:'';const choose=data.path?`<button class="button primary" type="button" data-path="${encodeURIComponent(data.path)}" onclick="chooseDirectory(decodeURIComponent(this.dataset.path))">选择当前目录</button>`:'';modalBody.innerHTML=`<h2>选择目录</h2><p class="muted">只能浏览 Docker 已挂载并授权的 NAS 目录。</p><div class="directory-current"><code>${escapeHtml(data.path||'挂载根目录')}</code></div><div class="directory-actions">${roots}${parent}${choose}</div><div class="directory-list">${items||'<div class="empty-directory">没有可进入的子目录</div>'}</div>`;modal.hidden=false}catch(error){showToast(error.message,true);if(path)loadDirectories('')}}
 function chooseDirectory(path){const input=document.querySelector(`[name="${directoryTarget}"]`);if(input)input.value=path;closeModal();showToast('目录已选择')}
+
+// 设置页自动整理状态轮询
+let autoStatusTimer=null;
+async function refreshAutoStatus(){
+  const box=document.querySelector('#auto-status');
+  if(!box){if(autoStatusTimer){clearInterval(autoStatusTimer);autoStatusTimer=null}return}
+  try{
+    const data=await api('/api/auto-status');
+    const state=data.enabled?(data.running?'<span class="dot busy"></span>正在整理':'<span class="dot ok"></span>监控中'):'<span class="dot off"></span>未开启';
+    box.innerHTML=`${state}<span>成功 ${data.processed_success} 部 · 失败 ${data.processed_failed} 部</span>${data.current?`<span class="muted">当前：${escapeHtml(data.current)}</span>`:''}${data.last_scan_at?`<span class="muted">最近检查：${escapeHtml(data.last_scan_at.replace(/T/,' ').replace(/\+.*$/,''))}</span>`:''}${data.last_error?`<small class="row-error">${escapeHtml(data.last_error)}</small>`:''}`
+  }catch(error){box.textContent='状态获取失败'}
+}
+if(document.querySelector('#auto-status')){refreshAutoStatus();autoStatusTimer=setInterval(refreshAutoStatus,5000)}
 function escapeHtml(value){const div=document.createElement('div');div.textContent=value;return div.innerHTML}
