@@ -26,7 +26,7 @@ def make_settings(source: Path, target: Path, **extra) -> AppSettings:
 
 def _patch_environment(monkeypatch, state_file: Path, source: Path, target: Path):
     target.mkdir(exist_ok=True)
-    monkeypatch.setattr(aw_mod, "ALLOWED_PATH_ROOTS", (state_file.parent,))
+    monkeypatch.setattr(aw_mod, "ALLOWED_PATH_ROOTS", (state_file.parent.parent,))
     executed: list[str] = []
     recorded_jobs: list[dict] = []
 
