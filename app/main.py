@@ -29,7 +29,7 @@ from .settings import (
 
 
 BASE_DIR = Path(__file__).parent
-app = FastAPI(title="AI 短剧整理器", version="0.5.0")
+app = FastAPI(title="AI 短剧整理器", version="0.5.1")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 BATCH_TASKS: dict[str, dict] = {}
@@ -45,7 +45,7 @@ def page_context(request: Request, active: str, **extra) -> dict:
         "settings": settings,
         "jobs": jobs,
         "modes": MODES,
-        "version": "v0.5.0",
+        "version": "v0.5.1",
     }
     context.update(extra)
     return context

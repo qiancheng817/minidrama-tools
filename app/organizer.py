@@ -8,7 +8,7 @@ from pathlib import Path
 from time import monotonic
 from xml.etree import ElementTree as ET
 
-from .core import Show, choose_frame, create_artwork
+from .core import STRM_EXTENSION, Show, choose_frame, create_artwork, resolve_media_source
 
 
 MODES = {"copy": "复制", "hardlink": "硬链接", "inplace": "原地整理"}
@@ -112,13 +112,25 @@ def execute(
     frame = target / ".ai-drama-frame.jpg"
     try:
         if overwrite_artwork or not (target / "poster.jpg").exists() or not (target / "fanart.jpg").exists():
-            choose_frame(Path(show.episodes[0].path), frame)
-            artwork_show = Show(
-                path=str(target), relative_path=show.relative_path, folder_name=show.folder_name,
-                title=show.title, alternate_title=show.alternate_title, episodes=show.episodes,
-                has_poster=False, has_nfo=True,
-            )
-            create_artwork(frame, artwork_show)
+            first_episode = Path(show.episodes[0].path)
+            media_source = resolve_media_source(first_episode)
+            if media_source is not None:
+                artwork_show = Show(
+                    path=str(target), relative_path=show.relative_path, folder_name=show.folder_name,
+                    title=show.title, alternate_title=show.alternate_title, episodes=show.episodes,
+                    has_poster=False, has_nfo=True,
+                )
+                try:
+                    choose_frame(media_source, frame)
+                    create_artwork(frame, artwork_show)
+                except Exception as exc:
+                    # strm 指向的媒体可能在容器内不可访问（云盘未挂载、URL 不通），
+                    # 此时跳过封面但保留 NFO，不让整个整理任务失败
+                    if first_episode.suffix.lower() != STRM_EXTENSION:
+                        raise
+                    print(f"strm 封面生成失败，已跳过：{exc}")
+            elif first_episode.suffix.lower() == STRM_EXTENSION:
+                print("strm 指向的媒体无法访问，已跳过封面生成，可手动放置 poster.jpg")
     finally:
         frame.unlink(missing_ok=True)
     return {

@@ -13,6 +13,10 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageSta
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".m4v", ".ts", ".webm"}
+STRM_EXTENSION = ".strm"
+# 所有扩展名统一为小写带点形式，扫描只认这一个集合
+MEDIA_EXTENSIONS = VIDEO_EXTENSIONS | {STRM_EXTENSION}
+URL_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 EPISODE_PATTERNS = [
     re.compile(r"(?:第\s*)?(\d{1,4})(?:\s*集)", re.I),
     re.compile(r"(?:^|[._\-\s])(?:ep?|s\d{1,2}e)(\d{1,4})(?:$|[._\-\s])", re.I),
@@ -75,6 +79,16 @@ def safe_child(root: Path, candidate: Path) -> Path:
     return candidate
 
 
+def _is_episode_file(name: str, directory: Path, minimum_size_bytes: int) -> bool:
+    suffix = Path(name).suffix.lower()
+    if suffix not in MEDIA_EXTENSIONS:
+        return False
+    if suffix == STRM_EXTENSION:
+        # strm 是记录媒体路径的文本文件，体积很小，不参与文件大小过滤
+        return True
+    return (directory / name).stat().st_size >= minimum_size_bytes
+
+
 def scan_shows(root: Path, minimum_size_bytes: int = 0) -> list[Show]:
     root = root.resolve()
     if not root.exists():
@@ -82,13 +96,13 @@ def scan_shows(root: Path, minimum_size_bytes: int = 0) -> list[Show]:
     shows: list[Show] = []
     for directory, subdirs, files in os.walk(root):
         subdirs[:] = [name for name in subdirs if not name.startswith(".")]
+        path = Path(directory)
         video_names = sorted(
-            (name for name in files if Path(name).suffix.lower() in VIDEO_EXTENSIONS and (Path(directory) / name).stat().st_size >= minimum_size_bytes),
+            (name for name in files if _is_episode_file(name, path, minimum_size_bytes)),
             key=natural_key,
         )
         if not video_names:
             continue
-        path = Path(directory)
         title, alternate = clean_title(path.name)
         episodes = []
         for index, name in enumerate(video_names, 1):
@@ -126,7 +140,37 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def _probe_duration(video: Path) -> float:
+def read_strm_target(strm_path: Path) -> str | None:
+    """读取 strm 文件第一条非空内容（本地路径或 URL）。"""
+    try:
+        for line in strm_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            value = line.strip()
+            if value:
+                return value
+    except OSError:
+        return None
+    return None
+
+
+def resolve_media_source(path: Path) -> Path | str | None:
+    """返回剧集真正可播放的媒体源。
+    普通视频返回自身；strm 返回其中记录的本地路径或 URL；无法解析时返回 None。"""
+    path = Path(path)
+    if path.suffix.lower() != STRM_EXTENSION:
+        return path
+    target = read_strm_target(path)
+    if not target:
+        return None
+    if URL_PATTERN.match(target):
+        return target
+    candidate = Path(target)
+    if not candidate.is_absolute():
+        candidate = path.parent / candidate
+    candidate = candidate.resolve()
+    return candidate if candidate.exists() else None
+
+
+def _probe_duration(video: Path | str) -> float:
     result = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(video)],
         capture_output=True,
@@ -140,7 +184,7 @@ def _probe_duration(video: Path) -> float:
         return 60.0
 
 
-def _extract_frame(video: Path, second: float, output: Path) -> None:
+def _extract_frame(video: Path | str, second: float, output: Path) -> None:
     result = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-ss", f"{second:.2f}", "-i", str(video), "-frames:v", "1", "-q:v", "2", "-y", str(output)],
         capture_output=True,
@@ -157,7 +201,7 @@ def _sharpness(path: Path) -> float:
         return ImageStat.Stat(gray).var[0]
 
 
-def choose_frame(video: Path, output: Path) -> None:
+def choose_frame(video: Path | str, output: Path) -> None:
     duration = _probe_duration(video)
     sample_points = [duration * ratio for ratio in (0.18, 0.42, 0.68)]
     with tempfile.TemporaryDirectory() as temporary:
@@ -263,7 +307,10 @@ def process_show(show: Show, plot: str = "", overwrite_artwork: bool = False) ->
     frame = folder / ".ai-drama-frame.jpg"
     try:
         if overwrite_artwork or not (folder / "poster.jpg").exists() or not (folder / "fanart.jpg").exists():
-            choose_frame(Path(show.episodes[0].path), frame)
+            media_source = resolve_media_source(Path(show.episodes[0].path))
+            if media_source is None:
+                raise RuntimeError("无法解析 strm 指向的媒体文件")
+            choose_frame(media_source, frame)
             create_artwork(frame, show)
             created.extend(["poster.jpg", "fanart.jpg"])
         create_nfo(show, plot)
