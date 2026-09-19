@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}主界面 · AI 短剧管理{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>你好，欢迎回来</h1><p>扫描、整理并为 Emby 生成本地元数据。</p></div><a class="button primary" href="/jobs">创建整理任务</a></div>
+<h2 class="section-title">运行状态</h2>
+<div class="stats">
+  <div class="stat"><div class="stat-icon violet">＋</div><div><span>整理方式</span><strong>按需</strong><small>创建任务后才扫描</small></div></div>
+  <div class="stat"><div class="stat-icon cyan">▶</div><div><span>已处理视频</span><strong>{{ episode_count }}</strong><small>来自历史任务记录</small></div></div>
+  <div class="stat"><div class="stat-icon green">✓</div><div><span>成功任务</span><strong>{{ success_count }}</strong><small>已完成刮削整理</small></div></div>
+  <div class="stat"><div class="stat-icon orange">!</div><div><span>失败任务</span><strong>{{ failed_count }}</strong><small>可在记录中查看</small></div></div>
+</div>
+<div class="panel"><div class="panel-head"><div><h2>最近活动</h2><p>最新的整理和刮削任务</p></div><a href="/history">查看全部</a></div>
+  <div class="table-wrap"><table><thead><tr><th>#</th><th>短剧</th><th>整理模式</th><th>目标目录</th><th>处理时间</th><th>状态</th></tr></thead><tbody>
+  {% for job in jobs[:8] %}<tr><td>{{ job.id }}</td><td><strong>{{ job.title }}</strong></td><td>{{ job.mode_label }}</td><td><code>{{ job.target }}</code></td><td>{{ job.created_at|replace('T',' ') }}</td><td><span class="status {{ 'success' if job.status == '成功' else 'failed' }}">{{ job.status }}</span></td></tr>
+  {% else %}<tr><td colspan="6" class="empty-row">还没有任务记录</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

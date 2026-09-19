@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.git/
+.venv/
+.pip-*/
+.testdeps/
+tests/
+docs/
+config/
+*.zip
+*.backup

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}整理任务 · AI 短剧管理{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>添加整理任务</h1><p>选择本次任务的来源和目标，确认后才会扫描目录。</p></div></div>
+<form id="task-form" class="task-builder" onsubmit="scanTask(event,this,false)">
+  <div class="task-field"><label for="source-directory">短剧来源目录</label><small>只扫描这次选择的目录，不会预扫描整个媒体库。</small><div class="path-picker"><input id="source-directory" name="source_directory" value="{{ settings.scrape_directory }}" required><button class="button ghost" type="button" onclick="openDirectoryPicker('source_directory')">选择目录</button></div></div>
+  <div class="task-arrow">→</div>
+  <div class="task-field"><label for="organize-directory">整理目标目录</label><small>整理后的视频、NFO 和封面将写入这里。</small><div class="path-picker"><input id="organize-directory" name="organize_directory" value="{{ settings.organize_directory }}" required><button class="button ghost" type="button" onclick="openDirectoryPicker('organize_directory')">选择目录</button></div></div>
+  <div class="task-field task-mode"><label for="task-mode">整理模式</label><small>复制最安全，硬链接要求在同一文件系统。</small><select id="task-mode" name="mode">{% for key,label in modes.items() %}<option value="{{ key }}" {{ 'selected' if settings.organize_mode == key else '' }}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="task-actions"><button class="button ghost" type="submit">仅扫描此目录</button><button class="button primary" type="button" onclick="scanTask(event,this.form,true)">扫描并整理此目录</button></div>
+</form>
+
+<section id="scan-results" hidden>
+  <div class="toolbar"><input id="search" placeholder="搜索短剧或目录" oninput="filterShows(this.value)"><span id="scan-summary"></span></div>
+  <div class="show-list" id="show-list"></div>
+</section>
+<div class="blank" id="task-empty"><div>＋</div><h2>请先添加整理任务</h2><p>可以仅扫描后逐部预览，也可以扫描并批量整理整个目录。</p></div>
+{% endblock %}

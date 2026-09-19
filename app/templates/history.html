@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}刮削记录 · AI 短剧管理{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>刮削记录</h1><p>共 {{ jobs|length }} 条整理记录</p></div><button class="button accent" onclick="refreshEmby(this)" {% if not settings.emby_url or not settings.emby_api_key %}disabled title="请先配置 Emby"{% endif %}>刷新 Emby</button></div>
+<div class="panel"><div class="table-wrap"><table><thead><tr><th>#</th><th>短剧</th><th>扫描目录</th><th>整理目录</th><th>模式</th><th>文件</th><th>用时</th><th>状态</th></tr></thead><tbody>
+{% for job in jobs %}<tr><td>{{ job.id }}</td><td><strong>{{ job.title }}</strong>{% if job.error %}<small class="row-error">{{ job.error }}</small>{% endif %}</td><td><code>{{ job.source }}</code></td><td><code>{{ job.target }}</code></td><td>{{ job.mode_label }}</td><td>复制 {{ job.copied }} · 链接 {{ job.linked }} · 跳过 {{ job.skipped }}</td><td>{{ job.duration_seconds }}s</td><td><span class="status {{ 'success' if job.status == '成功' else 'failed' }}">{{ job.status }}</span></td></tr>
+{% else %}<tr><td colspan="8" class="empty-row">还没有刮削记录</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
+

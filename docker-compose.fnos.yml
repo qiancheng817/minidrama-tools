@@ -1,0 +1,27 @@
+# 飞牛 fnOS 专用部署文件
+# 部署前请先在 SSH 中创建目录：
+#   mkdir -p /vol1/1000/docker/minidrama/{config,source,library}
+# 把待整理的短剧放入 source 目录（或其子目录），整理后的媒体输出到 library。
+# 启动：docker compose -f docker-compose.fnos.yml up -d
+# 访问：http://飞牛NAS的IP:8997
+
+services:
+  minidrama-tools:
+    image: ghcr.io/qiancheng817/minidrama-tools:latest
+    container_name: minidrama-tools
+    restart: unless-stopped
+    ports:
+      - "8997:8096"
+    environment:
+      SOURCE_ROOT: /source
+      LIBRARY_ROOT: /library
+      BROWSE_ROOTS: /source,/library
+      CONFIG_DIR: /config
+      # 如需联动 Emby 刷新媒体库，填写以下两项；不联动可留空
+      EMBY_URL: ""
+      EMBY_API_KEY: ""
+      TZ: Asia/Shanghai
+    volumes:
+      - /vol1/1000/docker/minidrama/config:/config
+      - /vol1/1000/docker/minidrama/source:/source
+      - /vol1/1000/docker/minidrama/library:/library

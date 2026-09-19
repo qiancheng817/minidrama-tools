@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AI 短剧管理{% endblock %}</title><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/directory-picker.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">AI</span><div><strong>AI-DRAMA</strong><small>{{ version }}</small></div></div>
+    <nav>
+      <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}"><span>⌂</span>主界面</a>
+      <a href="/jobs" class="{{ 'active' if active == 'jobs' else '' }}"><span>＋</span>整理任务</a>
+      <a href="/history" class="{{ 'active' if active == 'history' else '' }}"><span>≡</span>刮削记录</a>
+      <div class="nav-label">系统</div>
+      <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}"><span>⚙</span>设置</a>
+      <a href="#" onclick="toggleTheme();return false"><span>◐</span>切换主题</a>
+    </nav>
+    <div class="safe"><i></i><div><strong>安全模式</strong><small>默认保留源文件</small></div></div>
+  </aside>
+  <main class="content">
+    <header class="topbar"><button class="menu" onclick="document.body.classList.toggle('nav-open')">☰</button><div class="crumb">AI 短剧媒体工作台</div><div class="user">本地管理员</div></header>
+    <section class="page">{% block content %}{% endblock %}</section>
+  </main>
+  <div id="toast" role="status"></div>
+  <div id="modal" class="modal" hidden><div class="modal-card"><button class="modal-close" onclick="closeModal()">×</button><div id="modal-body"></div></div></div>
+  <script src="/static/app.js"></script>{% block scripts %}{% endblock %}
+</body></html>
